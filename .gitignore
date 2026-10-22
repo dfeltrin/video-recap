@@ -1,0 +1,37 @@
+# File personali e risultati dell'elaborazione
+/input/*
+!/input/.gitkeep
+/output/*
+!/output/.gitkeep
+*.mov
+*.MOV
+*.mp4
+*.MP4
+*.m4a
+*.M4A
+
+# Ambiente Python, cache e pesi locali
+.venv/
+venv/
+.cache/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.safetensors
+*.gguf
+
+# Configurazioni e credenziali personali
+.env
+.env.*
+!.env.example
+.ntfy-url
+*.pem
+*.key
+
+# Sistema ed editor
+.DS_Store
+._*
+.idea/
+.vscode/
+*.swp
+*.log

@@ -1,0 +1,225 @@
+VIDEO MOV E AUDIO M4A: TRASCRIZIONE E SINTESI
+
+1. Installa FFmpeg dal Terminale (Homebrew è già presente su questo Mac):
+   brew install ffmpeg
+
+2. Prepara ambiente e modelli una volta: ./setup_sintesi.sh
+   Sono necessari un Mac Apple Silicon e Python 3.10+ (consigliato 3.12).
+
+3. Dal Terminale nella cartella del progetto:
+   ./go.sh
+
+All'avvio lo script sposta i MOV e M4A (anche con estensione maiuscola) da
+Dropbox/Screenshot nella cartella
+input, rimuovendo la sorgente solo dopo il trasferimento completo. Cerca Dropbox prima in
+~/Library/CloudStorage/Dropbox e poi in ~/Dropbox. Non visita le sottocartelle.
+Salta i nomi già presenti in input, anche con prefisso _ (già elaborati), senza
+distinguere maiuscole e minuscole. Se Dropbox/Screenshot non è disponibile,
+segnala l'assenza e usa i file già in input. Un trasferimento fallito interrompe l'avvio.
+I file saltati perché già presenti restano su Dropbox.
+Con una cartella input personalizzata, sposta i MOV e M4A in quella cartella.
+Con --anteprima mostra gli spostamenti previsti senza eseguirli; i comandi di conversione
+si riferiscono soltanto ai file già presenti nella cartella input.
+
+Lo script converte tutti i .mov e .MOV nella cartella input accanto allo script,
+senza visitare le sottocartelle. Salva gli MP4 nella cartella output accanto allo
+script: input/video.mov → output/video.mp4. Crea output se necessario.
+Il contenuto degli originali resta intatto; al completamento vengono rinominati
+con prefisso _. Gli MP4 già esistenti in output vengono saltati.
+I sample nella cartella principale rimangono soltanto riferimenti.
+Per riconvertire un video, sposta prima il relativo MP4 fuori da output.
+
+ANTEPRIMA SENZA CONVERSIONE
+   ./go.sh --anteprima
+
+ALTRA CARTELLA
+   ./go.sh "/percorso/input" --output "/percorso/output"
+
+I percorsi predefiniti sono relativi alla posizione dello script, anche quando
+go.sh viene lanciato da un'altra cartella. Per usare invece le cartelle assolute
+/input e /output alla radice del disco:
+   ./go.sh /input --output /output
+
+PROFILO RICAVATO DAI CAMPIONI
+sample.mov: H.264, 3024×1652, frequenza variabile, audio AAC stereo 48 kHz.
+sample.mp4: H.264 Main livello 4.0, 1920×1080, frequenza variabile fino a 30 fps,
+audio AAC mono 48 kHz, circa 165 kbit/s.
+I metadati x264 del campione indicano CRF 22, parametri compatibili con preset
+fast, GOP massimo 300, limite bitrate 20 Mbit/s e buffer 25 Mbit.
+
+La conversione usa queste impostazioni e audio AAC a 160 kbit/s. Per compatibilità
+con FFmpeg usa una frequenza costante limitata a 30 fps, mentre il campione
+ha frequenza variabile. Mantiene le
+proporzioni su una tela Full HD, aggiungendo bande quando servono, con pixel
+quadrati per una riproduzione uniforme. Il campione usa invece pixel non
+quadrati. La dimensione finale dipende dal contenuto: non viene imposto il
+bitrate video medio del campione (circa 383 kbit/s).
+L'opzione faststart rende l'MP4 adatto anche alla riproduzione via web.
+Se un video non contiene audio viene convertita soltanto la traccia video.
+
+In caso di errore lo script elimina il temporaneo e passa al video successivo.
+Puoi interrompere con Ctrl+C e rilanciare: i risultati completati sono saltati.
+
+INPUT COMPLETATI
+Alla fine dell'elaborazione di tutti i video, gli input per cui ogni passaggio
+richiesto è riuscito (o aveva già l'output) vengono rinominati con prefisso _:
+input/video.mov → input/_video.mov. I nomi degli output rimangono invariati.
+Le esecuzioni successive ignorano tutti i MOV e M4A il cui nome inizia con _.
+Se un passaggio fallisce, il relativo input mantiene il nome originale per
+consentire un nuovo tentativo. I passaggi audio/testo non applicabili ai video
+senza audio non bloccano la rinomina. Con --senza-testo bastano video e audio:
+per trascrivere in seguito, rimuovi il prefisso _ dall’originale MOV o M4A.
+L'anteprima mostra la rinomina prevista senza modificare file. Se il nome
+prefissato esiste già, segnala un errore e conserva entrambi gli input.
+
+AVANZAMENTO
+Alla fine di ogni step mostra il tempo impiegato in ore:minuti:secondi.millisecondi,
+inclusi eventuali errori. Per gli output già presenti mostra il tempo del controllo.
+Misura anche la rinomina e, alla fine dell'esecuzione, stampa TEMPO TOTALE.
+Il totale include controlli, conversioni, estrazioni, caricamento/download del
+modello ASR, trascrizioni e rinomine, anche in caso di errore o interruzione.
+Durante la conversione mostra il numero del file sul totale, la percentuale,
+il tempo trascorso, il tempo residuo stimato e la velocità di conversione.
+La stima si aggiorna durante il lavoro e può variare in base al contenuto.
+Se ffprobe non è disponibile o non rileva la durata, mostra comunque il tempo
+trascorso e la durata di video elaborata. Nei log senza terminale stampa
+un aggiornamento ogni 10 secondi; nel terminale aggiorna la stessa riga.
+
+ESTRAZIONE AUDIO
+Ogni MOV produce anche output/nome.m4a con la prima traccia audio originale.
+Le tracce AAC vengono copiate senza ricodifica, mantenendo qualità, frequenza
+e canali originali. Gli altri codec vengono convertiti in AAC a 192 kbit/s.
+L'MP4 continua a includere l'audio mono previsto dal profilo del campione.
+Se l'MP4 esiste già, viene comunque estratto l'M4A mancante e viceversa.
+I video privi di audio vengono convertiti senza creare un file M4A.
+Anche l'estrazione mostra l'avanzamento e protegge i file già esistenti.
+Per rilevare la traccia audio serve ffprobe, incluso nell'installazione FFmpeg.
+
+AUDIO M4A REGISTRATI CON IPHONE
+Esporta la registrazione dell'iPhone come file .m4a e mettila in input oppure
+in Dropbox/Screenshot. Avvia come sempre:
+  ./go.sh
+Anche i file .M4A vengono riconosciuti. Non vengono visitate le sottocartelle.
+Per input/riunione.m4a vengono creati:
+  output/riunione.m4a          copia integrale dell'audio originale
+  output/riunione.txt          trascrizione
+  output/riunione.sintesi.md   sintesi Markdown
+Per gli M4A non viene generato un MP4 e l'audio non viene ricodificato.
+La trascrizione legge direttamente l'M4A originale tramite FFmpeg, quindi
+funziona sia con audio AAC sia con ALAC leggibili da FFmpeg.
+Al completamento input/riunione.m4a diventa input/_riunione.m4a.
+Un errore mantiene il nome originale per consentire un nuovo tentativo.
+Con --senza-sintesi crea solo audio e TXT; con --senza-testo copia solo l'audio.
+Gli output esistenti vengono saltati, anche dopo un'interruzione.
+Input e output devono essere cartelle diverse per gli M4A.
+
+Usa nomi base diversi per registrazioni diverse: riunione.mov e riunione.m4a
+produrrebbero gli stessi TXT e report. Lo script rileva il conflitto in input
+(anche con file già prefissati _) e si ferma prima dell'elaborazione, chiedendo
+di rinominare uno dei file. L'anteprima mostra copia, trascrizione e sintesi
+previste per gli M4A senza modificare file.
+
+MODELLI LOCALI CON MLX
+La trascrizione usa Qwen/Qwen3-ASR-1.7B con mlx-qwen3-asr.
+La sintesi usa mlx-community/Qwen3.5-27B-6bit con mlx-lm.
+I modelli vengono caricati ed eseguiti direttamente nei processi Python sul
+Mac Apple Silicon tramite Metal. Non è necessario avviare alcun server.
+ASR e sintesi vengono eseguiti in processi separati, liberando la memoria
+al termine di ciascuno. Il modello 27B richiede molta memoria unificata:
+considera anche lo spazio per contesto, cache e sistema operativo oltre ai pesi.
+
+Preparazione (richiede Internet per pacchetti e pesi):
+  1. Installa Python 3.12 se manca: brew install python@3.12
+  2. Installa FFmpeg se manca: brew install ffmpeg
+  3. Esegui: ./setup_sintesi.sh
+     Per la sola trascrizione: ./setup_asr.sh
+Gli script riutilizzano .venv oppure la creano con Python 3.10+.
+Puoi scegliere l'interprete iniziale con PYTHON_SETUP=/percorso/python3.12.
+I pacchetti sono indicati nei due file requirements; i pesi vengono scaricati
+nella cache .cache/huggingface del progetto (oppure nella HF_HOME configurata).
+Il setup riprende i download incompleti. clean.sh elimina la cache del progetto,
+compresi i pesi: al successivo avvio go.sh li scarica nuovamente.
+
+./go.sh usa automaticamente .venv/bin/python. Prima dell'importazione da Dropbox
+verifica le dipendenze e i pesi necessari per la modalità richiesta.
+--help, --anteprima e --senza-testo funzionano anche senza i modelli.
+--senza-sintesi richiede solo ASR; --solo-sintesi richiede solo il modello testuale.
+go.sh riutilizza i modelli completi già presenti e scarica automaticamente quelli
+mancanti o incompleti; il download richiede Internet e precede l'importazione.
+Le cartelle locali configurate devono essere complete e non vengono scaricate.
+Per eseguire direttamente gli script Python usa .venv/bin/python; converti_video.py
+abilita lo stesso comportamento con --scarica-modelli. Le dipendenze mancanti
+richiedono comunque gli script di setup.
+
+Avvio normale, con trascrizione e sintesi:
+  ./go.sh
+Forzare la lingua della trascrizione:
+  ./go.sh --lingua Italian
+Trascrizione senza sintesi:
+  ./go.sh --senza-sintesi
+Solo video e audio:
+  ./go.sh --senza-testo
+Sintetizzare i TXT già presenti in output, anche senza MOV o con prefisso _:
+  ./go.sh --solo-sintesi
+Altra cartella di trascrizioni:
+  ./go.sh --solo-sintesi --output "/percorso/trascrizioni"
+Anteprima:
+  ./go.sh --solo-sintesi --anteprima
+Un singolo TXT:
+  .venv/bin/python sintetizza_testo.py "/percorso/nome.txt"
+Destinazione e prompt alternativi:
+  .venv/bin/python sintetizza_testo.py nome.txt risultato.md --prompt prompt_sintesi.txt
+
+Configurazione opzionale tramite variabili d'ambiente:
+  MODELLO_ASR=Qwen/Qwen3-ASR-1.7B
+  MODELLO_SINTESI=mlx-community/Qwen3.5-27B-6bit
+  HF_HOME=/percorso/cache/huggingface
+MODELLO_ASR e MODELLO_SINTESI accettano anche cartelle locali complete con
+configurazione, tokenizer e pesi safetensors compatibili con i rispettivi runtime.
+Per esempio:
+  MODELLO_ASR=/modelli/qwen-asr MODELLO_SINTESI=/modelli/qwen-sintesi ./go.sh
+Usa le stesse variabili durante setup ed esecuzione. I pesi GGUF non sono
+compatibili con questi runtime MLX. Audio e trascrizioni sono elaborati sul Mac.
+La notifica ntfy opzionale invia solo il messaggio di completamento;
+non include audio, trascrizioni o report e richiede una connessione Internet.
+Imposta NTFY_URL oppure salva l’URL del tuo topic in .ntfy-url (una riga),
+file personale escluso da Git. NTFY_URL ha precedenza sul file locale.
+Senza configurazione non viene inviata alcuna notifica; un errore di notifica
+non modifica l’esito dell’elaborazione.
+
+TRASCRIZIONE
+Ogni MOV con audio e ogni M4A produce output/nome.txt, UTF-8.
+FFmpeg legge l’originale MOV o M4A
+e prepara segmenti PCM mono a 16 kHz di massimo 30 secondi. Ogni segmento viene
+elaborato dalla sessione MLX locale e il testo viene riunito in ordine. La lingua è rilevata dal
+modello se non indicata. Il TXT viene scritto solo dopo il completamento.
+Mostra l'avanzamento per segmento. I file senza audio non generano TXT.
+
+SINTESI
+Dopo la trascrizione ogni MOV con audio e ogni M4A produce output/nome.sintesi.md.
+La sintesi usa il prompt in prompt_sintesi.txt, modificabile dall'utente,
+con thinking disattivato, contesto di 32.768 token e massimo 4.096 token di output.
+Il report è in italiano e Markdown: titolo, sintesi esecutiva, punti chiave,
+decisioni, azioni con responsabili e scadenze, questioni aperte e note.
+Le informazioni mancanti devono restare tali, senza inventare dettagli.
+
+Il budget di input usa il tokenizer effettivo del modello: massimo 24.000 token
+comprese istruzioni e template. Prima di generare controlla inoltre che input
+e output non superino il contesto di 32.768 token. I testi lunghi vengono divisi
+senza perdere caratteri o spezzare parole, sintetizzati per sezioni e riuniti
+in un report complessivo.
+Questa riduzione può perdere dettagli secondari: verifica il report sulla
+trascrizione quando serve precisione puntuale. Una risposta troncata, vuota o
+contenente tag di thinking viene rifiutata. Mostra token generati e durata.
+
+I risultati esistenti vengono saltati e i nuovi pubblicati solo al completamento,
+senza sovrascrivere. Per rigenerare una sintesi sposta prima il file .sintesi.md.
+Un errore conserva gli altri output e impedisce la rinomina del MOV, così da
+consentire un nuovo tentativo. Con --senza-sintesi la rinomina non richiede il
+report. I video senza audio non richiedono trascrizione o sintesi.
+
+Fonti tecniche:
+https://github.com/moona3k/mlx-qwen3-asr
+https://github.com/ml-explore/mlx-lm
+https://huggingface.co/Qwen/Qwen3-ASR-1.7B
+https://huggingface.co/mlx-community/Qwen3.5-27B-6bit
